@@ -1,0 +1,23 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/greenhouse?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+mqtt:
+  broker-url: tcp://localhost:1883
+  client-id: greenhouse-backend-01
+  username:
+  password:
+  telemetry-topic: greenhouse/+/telemetry
+  command-topic: greenhouse/{deviceId}/command

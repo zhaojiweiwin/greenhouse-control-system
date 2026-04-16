@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/usr/local/bin/claude config:*)",
+      "Bash(claude --version)",
+      "Bash(claude config:*)"
+    ]
+  }
+}
