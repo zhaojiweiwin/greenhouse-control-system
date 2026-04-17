@@ -1,13 +1,15 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { fetchStrategies, saveStrategy } from '../api/strategy'
+import { fetchStrategies, saveStrategy, updateStrategy, deleteStrategy } from '../api/strategy'
 import PaginationBar from '../components/PaginationBar.vue'
 
 const rules = ref([])
 const message = ref('')
 const page = ref(1)
 const pageSize = ref(10)
-const form = ref({
+const editingId = ref(null)
+
+const defaultForm = () => ({
   ruleName: '高温启动风机',
   deviceId: 'gh-esp32-01',
   metricType: 'temperature',
@@ -18,6 +20,8 @@ const form = ref({
   enabled: true,
   cooldownSeconds: 60
 })
+
+const form = ref(defaultForm())
 
 const pagedRules = computed(() => {
   const start = (page.value - 1) * pageSize.value
@@ -36,9 +40,58 @@ const loadRules = async () => {
   rules.value = data
 }
 
+const formPayload = () => ({
+  ruleName: form.value.ruleName,
+  deviceId: form.value.deviceId,
+  metricType: form.value.metricType,
+  operator: form.value.operator,
+  thresholdValue: Number(form.value.thresholdValue),
+  actionType: form.value.actionType,
+  actionPayload: form.value.actionPayload,
+  enabled: !!form.value.enabled,
+  cooldownSeconds: Number(form.value.cooldownSeconds)
+})
+
 const submit = async () => {
-  await saveStrategy(form.value)
-  message.value = '策略已保存'
+  if (editingId.value != null) {
+    await updateStrategy(editingId.value, formPayload())
+    message.value = '策略已更新'
+  } else {
+    await saveStrategy(formPayload())
+    message.value = '策略已保存'
+  }
+  await loadRules()
+}
+
+const startEdit = (rule) => {
+  editingId.value = rule.id
+  form.value = {
+    ruleName: rule.ruleName,
+    deviceId: rule.deviceId,
+    metricType: rule.metricType,
+    operator: rule.operator,
+    thresholdValue: rule.thresholdValue,
+    actionType: rule.actionType,
+    actionPayload: rule.actionPayload,
+    enabled: !!rule.enabled,
+    cooldownSeconds: rule.cooldownSeconds
+  }
+  message.value = '正在编辑，修改后点击保存'
+}
+
+const cancelEdit = () => {
+  editingId.value = null
+  form.value = defaultForm()
+  message.value = ''
+}
+
+const removeRule = async (rule) => {
+  if (!confirm(`确定删除规则「${rule.ruleName}」吗？`)) return
+  await deleteStrategy(rule.id)
+  if (editingId.value === rule.id) {
+    cancelEdit()
+  }
+  message.value = '已删除'
   await loadRules()
 }
 
@@ -60,7 +113,8 @@ onMounted(loadRules)
         <label>冷却时间(s) <input v-model="form.cooldownSeconds" type="number" /></label>
         <label>启用 <input v-model="form.enabled" type="checkbox" /></label>
       </div>
-      <button @click="submit">保存策略</button>
+      <button @click="submit">{{ editingId != null ? '更新策略' : '保存策略' }}</button>
+      <button v-if="editingId != null" type="button" class="btn-secondary" @click="cancelEdit">取消编辑</button>
       <span style="margin-left:12px;">{{ message }}</span>
     </div>
 
@@ -68,7 +122,7 @@ onMounted(loadRules)
       <h3>已配置策略</h3>
       <table class="data-table">
         <thead>
-          <tr><th>名称</th><th>设备</th><th>规则</th><th>动作</th><th>启用</th><th>最近触发</th></tr>
+          <tr><th>名称</th><th>设备</th><th>规则</th><th>动作</th><th>启用</th><th>最近触发</th><th>操作</th></tr>
         </thead>
         <tbody>
           <tr v-for="rule in pagedRules" :key="rule.id">
@@ -78,6 +132,10 @@ onMounted(loadRules)
             <td>{{ rule.actionType }}</td>
             <td>{{ rule.enabled ? '是' : '否' }}</td>
             <td>{{ rule.lastTriggeredAt || '-' }}</td>
+            <td class="actions">
+              <button type="button" class="btn-small" @click="startEdit(rule)">编辑</button>
+              <button type="button" class="btn-small btn-danger" @click="removeRule(rule)">删除</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -120,5 +178,27 @@ textarea {
   border: 1px solid #dfe4f2;
   padding: 8px;
   text-align: left;
+}
+
+.actions {
+  white-space: nowrap;
+}
+
+.btn-small {
+  margin-right: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.btn-danger {
+  color: #b42318;
+  border-color: #fecdca;
+  background: #fef3f2;
+}
+
+.btn-secondary {
+  margin-left: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
 }
 </style>
