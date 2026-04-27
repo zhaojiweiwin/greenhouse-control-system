@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS control_rule (
 );
 
 INSERT INTO device (device_id, name, greenhouse_name, control_mode, online_status, last_heartbeat)
-SELECT 'gh-esp32-01', 'ESP32主控节点', '1号实验温室', 'AUTO', 0, NULL
+SELECT 'gh-esp32-01', '空气温度传感器-01', '1号实验温室', 'AUTO', 0, NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM device WHERE device_id = 'gh-esp32-01'
 );
@@ -92,19 +92,3 @@ WHERE NOT EXISTS (
   SELECT 1 FROM control_rule WHERE rule_name = '高温启动风机'
 );
 
-INSERT INTO control_rule (
-  rule_name, device_id, metric_type, operator, threshold_value, action_type, action_payload, enabled, cooldown_seconds
-)
-SELECT
-  '土壤过干启动水泵',
-  'gh-esp32-01',
-  'soil_moisture',
-  '<',
-  30.0,
-  'PUMP_ON',
-  JSON_OBJECT('action', 'ON', 'target', 'pump'),
-  1,
-  60
-WHERE NOT EXISTS (
-  SELECT 1 FROM control_rule WHERE rule_name = '土壤过干启动水泵'
-);

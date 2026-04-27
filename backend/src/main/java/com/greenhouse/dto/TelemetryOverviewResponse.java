@@ -8,7 +8,10 @@ public class TelemetryOverviewResponse {
   private List<Map<String, Object>> latestRows;
   private Map<String, Object> latestSnapshot;
   private List<Map<String, Object>> temperatureSeries;
+  /** 空气湿度 (%)，与空气温度类设备同节点上报 */
   private List<Map<String, Object>> humiditySeries;
+  /** 光照度 (lux) */
+  private List<Map<String, Object>> illuminanceSeries;
   private List<Map<String, Object>> soilMoistureSeries;
 
   public List<Map<String, Object>> getLatestRows() { return latestRows; }
@@ -19,6 +22,8 @@ public class TelemetryOverviewResponse {
   public void setTemperatureSeries(List<Map<String, Object>> temperatureSeries) { this.temperatureSeries = temperatureSeries; }
   public List<Map<String, Object>> getHumiditySeries() { return humiditySeries; }
   public void setHumiditySeries(List<Map<String, Object>> humiditySeries) { this.humiditySeries = humiditySeries; }
+  public List<Map<String, Object>> getIlluminanceSeries() { return illuminanceSeries; }
+  public void setIlluminanceSeries(List<Map<String, Object>> illuminanceSeries) { this.illuminanceSeries = illuminanceSeries; }
   public List<Map<String, Object>> getSoilMoistureSeries() { return soilMoistureSeries; }
   public void setSoilMoistureSeries(List<Map<String, Object>> soilMoistureSeries) { this.soilMoistureSeries = soilMoistureSeries; }
 }

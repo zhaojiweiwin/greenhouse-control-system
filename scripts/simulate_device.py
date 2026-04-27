@@ -17,10 +17,10 @@ def payload():
     return {
         "deviceId": DEVICE_ID,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        # 与「空气温度传感器」节点一致：温度 + 空气湿度
         "metrics": {
             "temperature": round(random.uniform(20.0, 34.0), 1),
             "humidity": round(random.uniform(40.0, 85.0), 1),
-            "soil_moisture": round(random.uniform(20.0, 55.0), 1),
         },
     }
 

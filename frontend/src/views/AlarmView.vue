@@ -1,9 +1,13 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { fetchAlarms } from '../api/alarm'
+import { fetchDevices } from '../api/device'
 import PaginationBar from '../components/PaginationBar.vue'
+import { buildDeviceMetaMap } from '../utils/deviceMeta'
+import { formatDateTime } from '../utils/formatTime'
 
 const alarms = ref([])
+const devices = ref([])
 const page = ref(1)
 const pageSize = ref(10)
 const filters = ref({
@@ -13,7 +17,6 @@ const filters = ref({
   startTime: '',
   endTime: ''
 })
-const deviceOptions = ref([])
 const typeOptions = ref([])
 const statusOptions = ['OPEN', 'RESOLVED']
 
@@ -21,6 +24,8 @@ const pagedAlarms = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return alarms.value.slice(start, start + pageSize.value)
 })
+
+const deviceMeta = computed(() => buildDeviceMetaMap(devices.value))
 
 watch(alarms, () => {
   const maxPage = Math.max(1, Math.ceil(alarms.value.length / pageSize.value))
@@ -38,7 +43,6 @@ const loadAlarms = async () => {
   if (filters.value.endTime) params.endTime = filters.value.endTime
   const { data } = await fetchAlarms(params)
   alarms.value = data
-  deviceOptions.value = Array.from(new Set(data.map(item => item.deviceId))).sort()
   typeOptions.value = Array.from(new Set(data.map(item => item.alarmType))).sort()
 }
 
@@ -53,7 +57,10 @@ const resetFilters = async () => {
   await loadAlarms()
 }
 
-onMounted(loadAlarms)
+onMounted(async () => {
+  const [{ data: deviceRows }] = await Promise.all([fetchDevices(), loadAlarms()])
+  devices.value = deviceRows
+})
 </script>
 
 <template>
@@ -62,10 +69,12 @@ onMounted(loadAlarms)
     <div class="filter-grid">
       <label>
         设备
-        <input v-model="filters.deviceId" list="device-options" placeholder="输入或选择设备ID" />
-        <datalist id="device-options">
-          <option v-for="item in deviceOptions" :key="item" :value="item" />
-        </datalist>
+        <select v-model="filters.deviceId">
+          <option value="">全部</option>
+          <option v-for="d in devices" :key="d.id" :value="d.deviceId">
+            {{ d.name || '-' }} · {{ d.greenhouseName || '-' }}
+          </option>
+        </select>
       </label>
       <label>
         类型
@@ -96,17 +105,18 @@ onMounted(loadAlarms)
     </div>
     <table class="data-table">
       <thead>
-        <tr><th>设备</th><th>类型</th><th>级别</th><th>状态</th><th>触发值</th><th>阈值</th><th>时间</th><th>消息</th></tr>
+        <tr><th>设备名称</th><th>实验室</th><th>类型</th><th>级别</th><th>状态</th><th>触发值</th><th>阈值</th><th>时间</th><th>消息</th></tr>
       </thead>
       <tbody>
         <tr v-for="alarm in pagedAlarms" :key="alarm.id">
-          <td>{{ alarm.deviceId }}</td>
+          <td>{{ deviceMeta[alarm.deviceId]?.name ?? '-' }}</td>
+          <td>{{ deviceMeta[alarm.deviceId]?.greenhouseName ?? '-' }}</td>
           <td>{{ alarm.alarmType }}</td>
           <td>{{ alarm.alarmLevel }}</td>
           <td>{{ alarm.status }}</td>
           <td>{{ alarm.triggerValue }}</td>
           <td>{{ alarm.thresholdValue }}</td>
-          <td>{{ alarm.triggeredAt }}</td>
+          <td>{{ formatDateTime(alarm.triggeredAt) }}</td>
           <td>{{ alarm.message }}</td>
         </tr>
       </tbody>

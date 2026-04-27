@@ -2,6 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useDashboardStore } from '../stores/dashboard'
 import PaginationBar from '../components/PaginationBar.vue'
+import { buildDeviceMetaMap } from '../utils/deviceMeta'
+import { formatDateTime } from '../utils/formatTime'
 
 const store = useDashboardStore()
 let timer = null
@@ -20,6 +22,8 @@ const pagedAlarms = computed(() => {
   const start = (alarmPage.value - 1) * alarmPageSize.value
   return store.alarms.slice(start, start + alarmPageSize.value)
 })
+
+const deviceMeta = computed(() => buildDeviceMetaMap(store.devices))
 
 watch(() => store.items.length, () => {
   const maxPage = Math.max(1, Math.ceil(store.items.length / telemetryPageSize.value))
@@ -54,17 +58,21 @@ onUnmounted(() => {
 <template>
   <div style="display:grid;gap:16px;">
     <div class="card">
-      <h3>实时看板</h3>
-      <p>最后刷新: {{ store.lastUpdatedAt || '-' }}</p>
+      <h3>实时数据</h3>
+      <p>最后刷新: {{ formatDateTime(store.lastUpdatedAt) }}</p>
       <p v-if="store.loading">加载中...</p>
       <div v-else class="stats-grid">
         <div class="stat-item">
-          <span>温度</span>
+          <span>空气温度</span>
           <strong>{{ store.snapshot?.temperature ?? 0 }} °C</strong>
         </div>
         <div class="stat-item">
-          <span>湿度</span>
+          <span>空气湿度</span>
           <strong>{{ store.snapshot?.humidity ?? 0 }} %</strong>
+        </div>
+        <div class="stat-item">
+          <span>光照度</span>
+          <strong>{{ store.snapshot?.illuminance ?? 0 }} lux</strong>
         </div>
         <div class="stat-item">
           <span>土壤湿度</span>
@@ -79,23 +87,30 @@ onUnmounted(() => {
 
     <div class="card">
       <h3>最近趋势</h3>
+      <p class="trend-hint">各指标展示当前实验温室下最近 10 次采样</p>
       <div class="series-grid">
         <div>
-          <h4>温度</h4>
+          <h4>空气温度</h4>
           <ul class="trend-list">
-            <li v-for="item in store.temperatureSeries" :key="`temp-${item.time}`">{{ item.time }} / {{ item.value }}</li>
+            <li v-for="item in store.temperatureSeries" :key="`temp-${item.time}`">{{ formatDateTime(item.time) }} / {{ item.value }} °C</li>
           </ul>
         </div>
         <div>
-          <h4>湿度</h4>
+          <h4>空气湿度</h4>
           <ul class="trend-list">
-            <li v-for="item in store.humiditySeries" :key="`hum-${item.time}`">{{ item.time }} / {{ item.value }}</li>
+            <li v-for="item in store.humiditySeries" :key="`hum-${item.time}`">{{ formatDateTime(item.time) }} / {{ item.value }} %</li>
+          </ul>
+        </div>
+        <div>
+          <h4>光照度</h4>
+          <ul class="trend-list">
+            <li v-for="item in store.illuminanceSeries" :key="`lux-${item.time}`">{{ formatDateTime(item.time) }} / {{ item.value }} lux</li>
           </ul>
         </div>
         <div>
           <h4>土壤湿度</h4>
           <ul class="trend-list">
-            <li v-for="item in store.soilMoistureSeries" :key="`soil-${item.time}`">{{ item.time }} / {{ item.value }}</li>
+            <li v-for="item in store.soilMoistureSeries" :key="`soil-${item.time}`">{{ formatDateTime(item.time) }} / {{ item.value }} %</li>
           </ul>
         </div>
       </div>
@@ -105,14 +120,15 @@ onUnmounted(() => {
       <h3>最新遥测</h3>
       <table class="data-table">
         <thead>
-          <tr><th>设备</th><th>指标</th><th>值</th><th>采集时间</th></tr>
+          <tr><th>设备名称</th><th>实验室</th><th>指标</th><th>值</th><th>采集时间</th></tr>
         </thead>
         <tbody>
           <tr v-for="item in pagedItems" :key="item.id">
-            <td>{{ item.deviceId }}</td>
+            <td>{{ deviceMeta[item.deviceId]?.name ?? '-' }}</td>
+            <td>{{ deviceMeta[item.deviceId]?.greenhouseName ?? '-' }}</td>
             <td>{{ item.metricType }}</td>
             <td>{{ item.metricValue }}</td>
-            <td>{{ item.collectTime }}</td>
+            <td>{{ formatDateTime(item.collectTime) }}</td>
           </tr>
         </tbody>
       </table>
@@ -127,15 +143,16 @@ onUnmounted(() => {
       <h3>最新告警</h3>
       <table class="data-table">
         <thead>
-          <tr><th>设备</th><th>类型</th><th>状态</th><th>消息</th><th>时间</th></tr>
+          <tr><th>设备名称</th><th>实验室</th><th>类型</th><th>状态</th><th>消息</th><th>时间</th></tr>
         </thead>
         <tbody>
           <tr v-for="alarm in pagedAlarms" :key="alarm.id">
-            <td>{{ alarm.deviceId }}</td>
+            <td>{{ deviceMeta[alarm.deviceId]?.name ?? '-' }}</td>
+            <td>{{ deviceMeta[alarm.deviceId]?.greenhouseName ?? '-' }}</td>
             <td>{{ alarm.alarmType }}</td>
             <td>{{ alarm.status }}</td>
             <td>{{ alarm.message }}</td>
-            <td>{{ alarm.triggeredAt }}</td>
+            <td>{{ formatDateTime(alarm.triggeredAt) }}</td>
           </tr>
         </tbody>
       </table>
@@ -151,14 +168,26 @@ onUnmounted(() => {
 <style scoped>
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+}
+
+.trend-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #5c6478;
 }
 
 .series-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+@media (min-width: 960px) {
+  .series-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .stat-item {

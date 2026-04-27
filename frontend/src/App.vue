@@ -1,9 +1,10 @@
 <template>
   <div class="layout">
     <aside class="sidebar">
-      <h2>Greenhouse</h2>
-      <router-link to="/">实时看板</router-link>
+      <h2>ZJT-智能控制</h2>
+      <router-link to="/">首页</router-link>
       <router-link to="/control">设备控制</router-link>
+      <router-link to="/history">历史趋势</router-link>
       <router-link to="/strategy">策略管理</router-link>
       <router-link to="/alarm">告警中心</router-link>
     </aside>

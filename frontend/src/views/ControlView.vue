@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { sendControlCommand, fetchControlCommands } from '../api/control'
 import { fetchDevices } from '../api/device'
 import PaginationBar from '../components/PaginationBar.vue'
+import { buildDeviceMetaMap } from '../utils/deviceMeta'
+import { formatDateTime } from '../utils/formatTime'
 
 const deviceId = ref('gh-esp32-01')
 const commandType = ref('FAN_ON')
@@ -17,6 +19,8 @@ const pagedCommands = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return commands.value.slice(start, start + pageSize.value)
 })
+
+const deviceMeta = computed(() => buildDeviceMetaMap(devices.value))
 
 watch(commands, () => {
   const maxPage = Math.max(1, Math.ceil(commands.value.length / pageSize.value))
@@ -55,9 +59,11 @@ onMounted(async () => {
       <h3>设备控制</h3>
       <div style="display:grid;gap:10px;max-width:560px;">
         <label>
-          设备ID
+          设备
           <select v-model="deviceId">
-            <option v-for="device in devices" :key="device.id" :value="device.deviceId">{{ device.deviceId }} / {{ device.name }}</option>
+            <option v-for="device in devices" :key="device.id" :value="device.deviceId">
+              {{ device.name || '-' }} · {{ device.greenhouseName || '-' }}
+            </option>
           </select>
         </label>
         <label>命令类型 <input v-model="commandType" /></label>
@@ -71,15 +77,16 @@ onMounted(async () => {
       <h3>命令日志</h3>
       <table class="data-table">
         <thead>
-          <tr><th>设备</th><th>命令</th><th>来源</th><th>状态</th><th>时间</th></tr>
+          <tr><th>设备名称</th><th>实验室</th><th>命令</th><th>来源</th><th>状态</th><th>时间</th></tr>
         </thead>
         <tbody>
           <tr v-for="command in pagedCommands" :key="command.id">
-            <td>{{ command.deviceId }}</td>
+            <td>{{ deviceMeta[command.deviceId]?.name ?? '-' }}</td>
+            <td>{{ deviceMeta[command.deviceId]?.greenhouseName ?? '-' }}</td>
             <td>{{ command.commandType }}</td>
             <td>{{ command.source }}</td>
             <td>{{ command.status }}</td>
-            <td>{{ command.sentTime }}</td>
+            <td>{{ formatDateTime(command.sentTime) }}</td>
           </tr>
         </tbody>
       </table>

@@ -1,9 +1,13 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { fetchStrategies, saveStrategy, updateStrategy, deleteStrategy } from '../api/strategy'
+import { fetchDevices } from '../api/device'
 import PaginationBar from '../components/PaginationBar.vue'
+import { buildDeviceMetaMap } from '../utils/deviceMeta'
+import { formatDateTime } from '../utils/formatTime'
 
 const rules = ref([])
+const devices = ref([])
 const message = ref('')
 const page = ref(1)
 const pageSize = ref(10)
@@ -27,6 +31,8 @@ const pagedRules = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return rules.value.slice(start, start + pageSize.value)
 })
+
+const deviceMeta = computed(() => buildDeviceMetaMap(devices.value))
 
 watch(rules, () => {
   const maxPage = Math.max(1, Math.ceil(rules.value.length / pageSize.value))
@@ -95,7 +101,10 @@ const removeRule = async (rule) => {
   await loadRules()
 }
 
-onMounted(loadRules)
+onMounted(async () => {
+  const [{ data: deviceRows }] = await Promise.all([fetchDevices(), loadRules()])
+  devices.value = deviceRows
+})
 </script>
 
 <template>
@@ -104,7 +113,14 @@ onMounted(loadRules)
       <h3>策略管理</h3>
       <div class="form-grid">
         <label>规则名称 <input v-model="form.ruleName" /></label>
-        <label>设备ID <input v-model="form.deviceId" /></label>
+        <label>
+          设备
+          <select v-model="form.deviceId">
+            <option v-for="d in devices" :key="d.id" :value="d.deviceId">
+              {{ d.name || '-' }} · {{ d.greenhouseName || '-' }}
+            </option>
+          </select>
+        </label>
         <label>指标类型 <input v-model="form.metricType" /></label>
         <label>比较符 <input v-model="form.operator" /></label>
         <label>阈值 <input v-model="form.thresholdValue" type="number" /></label>
@@ -122,16 +138,17 @@ onMounted(loadRules)
       <h3>已配置策略</h3>
       <table class="data-table">
         <thead>
-          <tr><th>名称</th><th>设备</th><th>规则</th><th>动作</th><th>启用</th><th>最近触发</th><th>操作</th></tr>
+          <tr><th>名称</th><th>设备名称</th><th>实验室</th><th>规则</th><th>动作</th><th>启用</th><th>最近触发</th><th>操作</th></tr>
         </thead>
         <tbody>
           <tr v-for="rule in pagedRules" :key="rule.id">
             <td>{{ rule.ruleName }}</td>
-            <td>{{ rule.deviceId }}</td>
+            <td>{{ deviceMeta[rule.deviceId]?.name ?? '-' }}</td>
+            <td>{{ deviceMeta[rule.deviceId]?.greenhouseName ?? '-' }}</td>
             <td>{{ rule.metricType }} {{ rule.operator }} {{ rule.thresholdValue }}</td>
             <td>{{ rule.actionType }}</td>
             <td>{{ rule.enabled ? '是' : '否' }}</td>
-            <td>{{ rule.lastTriggeredAt || '-' }}</td>
+            <td>{{ rule.lastTriggeredAt ? formatDateTime(rule.lastTriggeredAt) : '-' }}</td>
             <td class="actions">
               <button type="button" class="btn-small" @click="startEdit(rule)">编辑</button>
               <button type="button" class="btn-small btn-danger" @click="removeRule(rule)">删除</button>

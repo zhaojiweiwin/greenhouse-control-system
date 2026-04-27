@@ -12,6 +12,7 @@ export const useDashboardStore = defineStore('dashboard', {
     snapshot: null,
     temperatureSeries: [],
     humiditySeries: [],
+    illuminanceSeries: [],
     soilMoistureSeries: [],
     lastUpdatedAt: null,
     activeDeviceId: 'gh-esp32-01'
@@ -28,7 +29,8 @@ export const useDashboardStore = defineStore('dashboard', {
         this.items = overview.latestRows
         this.snapshot = overview.latestSnapshot
         this.temperatureSeries = overview.temperatureSeries
-        this.humiditySeries = overview.humiditySeries
+        this.humiditySeries = overview.humiditySeries ?? []
+        this.illuminanceSeries = overview.illuminanceSeries ?? []
         this.soilMoistureSeries = overview.soilMoistureSeries
         this.devices = devices
         this.alarms = alarms
@@ -39,11 +41,20 @@ export const useDashboardStore = defineStore('dashboard', {
     },
     applyRealtimePayload(payload) {
       const metrics = payload.metrics || {}
+      const prev = this.snapshot || {}
+      const mergeMetric = (stateKey, ...payloadKeys) => {
+        for (const k of payloadKeys) {
+          if (metrics[k] != null) return metrics[k]
+        }
+        if (prev[stateKey] != null) return prev[stateKey]
+        return 0
+      }
       this.snapshot = {
         deviceId: payload.deviceId,
-        temperature: metrics.temperature ?? this.snapshot?.temperature ?? 0,
-        humidity: metrics.humidity ?? this.snapshot?.humidity ?? 0,
-        soilMoisture: metrics.soil_moisture ?? this.snapshot?.soilMoisture ?? 0
+        temperature: mergeMetric('temperature', 'temperature'),
+        humidity: mergeMetric('humidity', 'humidity'),
+        illuminance: mergeMetric('illuminance', 'illuminance'),
+        soilMoisture: mergeMetric('soilMoisture', 'soil_moisture')
       }
       const collectTime = payload.timestamp
       const rows = Object.keys(metrics).map((metricType) => ({
@@ -56,13 +67,14 @@ export const useDashboardStore = defineStore('dashboard', {
       this.items = [...rows, ...this.items].slice(0, 50)
       this.pushSeries(this.temperatureSeries, metrics.temperature, collectTime)
       this.pushSeries(this.humiditySeries, metrics.humidity, collectTime)
+      this.pushSeries(this.illuminanceSeries, metrics.illuminance, collectTime)
       this.pushSeries(this.soilMoistureSeries, metrics.soil_moisture, collectTime)
       this.lastUpdatedAt = new Date().toISOString()
     },
     pushSeries(target, value, time) {
       if (typeof value !== 'number') return
       target.unshift({ time, value })
-      if (target.length > 20) {
+      if (target.length > 10) {
         target.pop()
       }
     }
